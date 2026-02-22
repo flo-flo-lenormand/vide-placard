@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Ingredient {
   id: string;
@@ -16,9 +21,7 @@ export default function InventairePage() {
 
   useEffect(() => {
     const stored = localStorage.getItem("vide-placard-ingredients");
-    if (stored) {
-      setIngredients(JSON.parse(stored));
-    }
+    if (stored) setIngredients(JSON.parse(stored));
   }, []);
 
   function save(updated: Ingredient[]) {
@@ -29,12 +32,10 @@ export default function InventairePage() {
   function addItem(name: string) {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const item: Ingredient = {
-      id: crypto.randomUUID(),
-      name: trimmed,
-      addedAt: new Date().toISOString(),
-    };
-    save([...ingredients, item]);
+    save([
+      ...ingredients,
+      { id: crypto.randomUUID(), name: trimmed, addedAt: new Date().toISOString() },
+    ]);
   }
 
   function handleAddSingle(e: React.FormEvent) {
@@ -63,99 +64,98 @@ export default function InventairePage() {
   }
 
   function clearAll() {
-    if (confirm("Supprimer tous les ingrédients ?")) {
-      save([]);
-    }
+    if (confirm("Supprimer tous les ingrédients ?")) save([]);
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-amber-900 mb-1">
-        Mon Inventaire
-      </h1>
-      <p className="text-amber-700 mb-6">
-        {ingredients.length} ingrédient{ingredients.length !== 1 ? "s" : ""} en
-        stock
-      </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Mon Inventaire</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {ingredients.length} ingrédient{ingredients.length !== 1 ? "s" : ""} en
+          stock
+        </p>
+      </div>
 
-      {/* Ajout individuel */}
-      <form onSubmit={handleAddSingle} className="flex gap-2 mb-3">
-        <input
-          type="text"
+      {/* Add single */}
+      <form onSubmit={handleAddSingle} className="flex gap-2">
+        <Input
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           placeholder="Ajouter un ingrédient..."
-          className="flex-1 px-3 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+          className="flex-1"
         />
-        <button
-          type="submit"
-          className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium"
-        >
-          Ajouter
-        </button>
+        <Button type="submit">Ajouter</Button>
       </form>
 
-      {/* Ajout en lot */}
-      <button
+      {/* Bulk add toggle */}
+      <Button
+        variant="link"
+        className="h-auto p-0 text-muted-foreground"
         onClick={() => setShowBulk(!showBulk)}
-        className="text-sm text-amber-600 hover:text-amber-800 mb-4 underline"
       >
-        {showBulk ? "Masquer" : "Coller une liste (depuis ChatGPT)"}
-      </button>
+        {showBulk
+          ? "Masquer"
+          : "📋 Coller une liste (depuis ChatGPT)"}
+      </Button>
 
       {showBulk && (
-        <div className="mb-4">
-          <textarea
-            value={bulkText}
-            onChange={(e) => setBulkText(e.target.value)}
-            placeholder="Collez ici la liste extraite par ChatGPT... (un ingrédient par ligne, ou séparés par des virgules)"
-            rows={6}
-            className="w-full px-3 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white mb-2"
-          />
-          <button
-            onClick={handleBulkAdd}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium"
-          >
-            Ajouter tout
-          </button>
-        </div>
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <Textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={"Collez ici la liste extraite par ChatGPT...\nUn ingrédient par ligne, ou séparés par des virgules."}
+              rows={5}
+            />
+            <Button onClick={handleBulkAdd} className="w-full">
+              Ajouter tout
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Liste */}
+      {/* Ingredient list */}
       {ingredients.length === 0 ? (
-        <div className="text-center py-12 text-amber-500">
-          <p className="text-4xl mb-3">🗄️</p>
-          <p>Vos placards sont vides !</p>
-          <p className="text-sm mt-1">
-            Ajoutez des ingrédients ou collez une liste.
-          </p>
-        </div>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <span className="text-5xl mb-4">🗄️</span>
+            <p className="font-medium">Vos placards sont vides !</p>
+            <p className="text-sm mt-1">
+              Ajoutez des ingrédients ou collez une liste.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          <ul className="space-y-2 mb-4">
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
             {ingredients.map((item) => (
-              <li
+              <Badge
                 key={item.id}
-                className="flex items-center justify-between bg-white px-4 py-3 rounded-lg border border-amber-200"
+                variant="secondary"
+                className="gap-1.5 py-1.5 px-3 text-sm cursor-default group"
               >
-                <span className="text-amber-900">{item.name}</span>
+                {item.name}
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="text-red-400 hover:text-red-600 text-sm"
-                  title="Supprimer"
+                  className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  aria-label={`Supprimer ${item.name}`}
                 >
                   ✕
                 </button>
-              </li>
+              </Badge>
             ))}
-          </ul>
-          <button
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive"
             onClick={clearAll}
-            className="text-sm text-red-400 hover:text-red-600 underline"
           >
             Tout supprimer
-          </button>
-        </>
+          </Button>
+        </div>
       )}
     </div>
   );

@@ -14,29 +14,33 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className="bg-amber-50 min-h-screen">
-        <nav className="bg-white shadow-sm border-b border-amber-200">
-          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/" className="text-xl font-bold text-amber-800">
-              🍽️ Vide-Placard
+      <body>
+        <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
+          <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground"
+            >
+              <span className="text-2xl">🍽️</span>
+              <span>Vide-Placard</span>
             </Link>
-            <div className="flex gap-4">
+            <nav className="flex items-center gap-1">
               <Link
                 href="/"
-                className="text-amber-700 hover:text-amber-900 font-medium"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
                 Inventaire
               </Link>
               <Link
                 href="/recettes"
-                className="text-amber-700 hover:text-amber-900 font-medium"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
                 Recettes
               </Link>
-            </div>
+            </nav>
           </div>
-        </nav>
-        <main className="max-w-2xl mx-auto px-4 py-6">{children}</main>
+        </header>
+        <main className="mx-auto max-w-2xl px-4 py-8">{children}</main>
       </body>
     </html>
   );

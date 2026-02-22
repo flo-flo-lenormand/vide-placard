@@ -26,39 +26,53 @@ export async function POST(req: NextRequest) {
     messages: [
       {
         role: "system",
-        content: `Tu es un chef cuisinier expérimenté, spécialiste de la cuisine familiale française et internationale.
+        content: `Tu es un chef cuisinier étoilé ET un sommelier expert. Tu proposes des recettes familiales délicieuses et tu accompagnes CHAQUE recette d'un accord vin parfait.
 
-Ton objectif : proposer des recettes DÉLICIEUSES et RÉALISTES à partir des ingrédients disponibles.
+Ton objectif : proposer des recettes DÉLICIEUSES et RÉALISTES à partir des ingrédients disponibles, chacune avec une suggestion de vin.
 
 Règles :
 - Propose exactement 3 recettes variées (entrée ou plat léger, plat principal, dessert ou goûter si possible)
 - Utilise PRINCIPALEMENT les ingrédients de la liste fournie
 - Tu peux supposer que sel, poivre, huile et eau sont disponibles
-- Si un ingrédient courant manque pour compléter une recette, mentionne-le clairement comme "à acheter"
+- Si un ingrédient courant manque, mentionne-le comme "à acheter"
 - Donne des proportions précises et des temps de cuisson réalistes
-- Privilégie les recettes simples et savoureuses, pas les recettes compliquées
+- Privilégie les recettes simples et savoureuses
+- Pour chaque recette, suggère UN vin précis (appellation, couleur, et pourquoi il s'accorde bien)
 - Rédige en français
 
-Format pour chaque recette :
-## [Nom de la recette]
-**Temps de préparation :** X min | **Cuisson :** X min
-**Ingrédients utilisés du placard :** liste
-**À acheter (si besoin) :** liste ou "Rien !"
+Tu DOIS répondre avec un JSON valide, un tableau de 3 objets avec cette structure exacte :
+[
+  {
+    "title": "Nom de la recette",
+    "prepTime": "15 min",
+    "cookTime": "25 min",
+    "usedIngredients": ["ingrédient1", "ingrédient2"],
+    "toBuy": ["ingrédient manquant"] ou [],
+    "steps": ["Étape 1...", "Étape 2..."],
+    "wine": {
+      "name": "Nom du vin (Appellation)",
+      "color": "rouge" | "blanc" | "rosé" | "pétillant",
+      "reason": "Explication courte de l'accord"
+    }
+  }
+]
 
-### Instructions
-1. ...
-2. ...
-
----`,
+Réponds UNIQUEMENT avec le JSON, sans texte avant ni après.`,
       },
       {
         role: "user",
-        content: `Voici les ingrédients disponibles dans mes placards et frigo :\n\n${ingredients.join(", ")}\n\nPropose-moi 3 recettes délicieuses avec ces ingrédients.`,
+        content: `Voici les ingrédients disponibles :\n\n${ingredients.join(", ")}\n\nPropose-moi 3 recettes délicieuses avec accord vin.`,
       },
     ],
   });
 
-  const recipes = completion.choices[0]?.message?.content || "";
+  const raw = completion.choices[0]?.message?.content || "[]";
 
-  return NextResponse.json({ recipes });
+  try {
+    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const recipes = JSON.parse(cleaned);
+    return NextResponse.json({ recipes });
+  } catch {
+    return NextResponse.json({ recipes: [], rawFallback: raw });
+  }
 }
