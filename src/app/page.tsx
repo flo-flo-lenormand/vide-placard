@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 interface Ingredient {
   id: string;
@@ -16,8 +15,6 @@ interface Ingredient {
 export default function InventairePage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [bulkText, setBulkText] = useState("");
-  const [showBulk, setShowBulk] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanPreview, setScanPreview] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,16 +45,6 @@ export default function InventairePage() {
     e.preventDefault();
     addItems([newItem]);
     setNewItem("");
-  }
-
-  function handleBulkAdd() {
-    const lines = bulkText
-      .split(/[\n,;]+/)
-      .map((l) => l.replace(/^[-•*\d.)\s]+/, "").trim())
-      .filter(Boolean);
-    addItems(lines);
-    setBulkText("");
-    setShowBulk(false);
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -123,67 +110,28 @@ export default function InventairePage() {
         </p>
       </div>
 
-      {/* Add single */}
-      <form onSubmit={handleAddSingle} className="flex gap-2">
-        <Input
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          placeholder="Ajouter un ingrédient..."
-          className="flex-1"
-        />
-        <Button type="submit">Ajouter</Button>
-      </form>
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setShowBulk(!showBulk)}
-          className="text-sm"
-        >
-          {showBulk ? "Masquer" : "Coller une liste"}
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={scanning}
-          className="text-sm"
-        >
-          {scanning ? (
-            <span className="flex items-center gap-2">
-              <LoadingSpinner /> Analyse en cours...
-            </span>
-          ) : (
-            "Prendre une photo"
-          )}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handlePhotoUpload}
-          className="hidden"
-        />
-      </div>
-
-      {/* Bulk add */}
-      {showBulk && (
-        <Card>
-          <CardContent className="pt-4 space-y-3">
-            <Textarea
-              value={bulkText}
-              onChange={(e) => setBulkText(e.target.value)}
-              placeholder={"Collez ici la liste extraite par ChatGPT...\nUn ingrédient par ligne, ou séparés par des virgules."}
-              rows={5}
-            />
-            <Button onClick={handleBulkAdd} className="w-full">
-              Ajouter tout
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Photo scan — primary action */}
+      <Button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={scanning}
+        size="lg"
+        className="w-full"
+      >
+        {scanning ? (
+          <span className="flex items-center gap-2">
+            <LoadingSpinner /> Analyse en cours...
+          </span>
+        ) : (
+          "Scanner un placard ou frigo"
+        )}
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handlePhotoUpload}
+        className="hidden"
+      />
 
       {/* Scan preview */}
       {scanPreview.length > 0 && (
@@ -205,7 +153,7 @@ export default function InventairePage() {
                     className="ml-0.5 text-muted-foreground hover:text-destructive"
                     aria-label={`Retirer ${name}`}
                   >
-                    ✕
+                    &#x2715;
                   </button>
                 </Badge>
               ))}
@@ -225,6 +173,17 @@ export default function InventairePage() {
         </Card>
       )}
 
+      {/* Add single — secondary */}
+      <form onSubmit={handleAddSingle} className="flex gap-2">
+        <Input
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          placeholder="Ajouter un ingrédient manuellement..."
+          className="flex-1"
+        />
+        <Button type="submit" variant="outline">Ajouter</Button>
+      </form>
+
       {/* Ingredient list */}
       {ingredients.length === 0 ? (
         <Card className="border-dashed">
@@ -234,7 +193,7 @@ export default function InventairePage() {
             </p>
             <p className="font-medium">Vos placards sont vides !</p>
             <p className="text-sm mt-1">
-              Ajoutez des ingrédients, collez une liste, ou prenez une photo.
+              Prenez une photo de votre placard ou frigo pour commencer.
             </p>
           </CardContent>
         </Card>
