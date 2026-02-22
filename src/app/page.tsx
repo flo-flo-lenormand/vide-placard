@@ -47,6 +47,32 @@ export default function InventairePage() {
     setNewItem("");
   }
 
+  async function resizeImage(file: File, maxSize = 1200): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          const ratio = Math.min(maxSize / width, maxSize / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("Compression échouée"))),
+          "image/jpeg",
+          0.8
+        );
+      };
+      img.onerror = () => reject(new Error("Image illisible"));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -54,8 +80,9 @@ export default function InventairePage() {
     setScanning(true);
     setScanPreview([]);
 
+    const resized = await resizeImage(file).catch(() => file);
     const formData = new FormData();
-    formData.append("photo", file);
+    formData.append("photo", resized, "photo.jpg");
 
     try {
       const res = await fetch("/api/scan", {
