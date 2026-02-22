@@ -37,6 +37,12 @@ export default function RootLayout({
               >
                 Recettes
               </Link>
+              <Link
+                href="/sauvegardees"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                Sauvegardées
+              </Link>
             </nav>
           </div>
         </header>

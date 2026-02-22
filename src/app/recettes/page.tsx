@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -27,6 +28,12 @@ interface Recipe {
   toBuy: string[];
   steps: string[];
   wine: Wine;
+}
+
+interface SavedRecipe extends Recipe {
+  id: string;
+  savedAt: string;
+  course: string;
 }
 
 type RecipesByCourse = Record<string, Recipe[]>;
@@ -55,6 +62,28 @@ function normalizeWineColor(color: string): string {
   return color.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+function getSavedRecipes(): SavedRecipe[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem("vide-placard-saved-recipes");
+  return stored ? JSON.parse(stored) : [];
+}
+
+function saveRecipe(recipe: Recipe, course: string) {
+  const saved = getSavedRecipes();
+  const entry: SavedRecipe = {
+    ...recipe,
+    id: crypto.randomUUID(),
+    savedAt: new Date().toISOString(),
+    course,
+  };
+  saved.push(entry);
+  localStorage.setItem("vide-placard-saved-recipes", JSON.stringify(saved));
+}
+
+function isRecipeSaved(title: string): boolean {
+  return getSavedRecipes().some((r) => r.title === title);
+}
+
 export default function RecettesPage() {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [recipes, setRecipes] = useState<RecipesByCourse | null>(null);
@@ -67,6 +96,7 @@ export default function RecettesPage() {
     "plat",
     "dessert",
   ]);
+  const [savedTitles, setSavedTitles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const stored = localStorage.getItem("vide-placard-ingredients");
@@ -74,12 +104,18 @@ export default function RecettesPage() {
       const parsed = JSON.parse(stored);
       setIngredients(parsed.map((i: { name: string }) => i.name));
     }
+    setSavedTitles(new Set(getSavedRecipes().map((r) => r.title)));
   }, []);
 
   function toggleCourse(id: string) {
     setSelectedCourses((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
+  }
+
+  function handleSave(recipe: Recipe, course: string) {
+    saveRecipe(recipe, course);
+    setSavedTitles(new Set(getSavedRecipes().map((r) => r.title)));
   }
 
   async function generateRecipes() {
@@ -239,6 +275,8 @@ export default function RecettesPage() {
                         key={i}
                         recipe={recipe}
                         option={i + 1}
+                        isSaved={savedTitles.has(recipe.title)}
+                        onSave={() => handleSave(recipe, course.id)}
                       />
                     ))}
                   </div>
@@ -259,11 +297,21 @@ export default function RecettesPage() {
   );
 }
 
-function RecipeCard({ recipe, option }: { recipe: Recipe; option: number }) {
+function RecipeCard({
+  recipe,
+  option,
+  isSaved,
+  onSave,
+}: {
+  recipe: Recipe;
+  option: number;
+  isSaved: boolean;
+  onSave: () => void;
+}) {
   const wineKey = normalizeWineColor(recipe.wine.color);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden flex flex-col">
       <CardHeader>
         <CardDescription className="text-xs font-medium uppercase tracking-wider">
           Option {option}
@@ -276,7 +324,7 @@ function RecipeCard({ recipe, option }: { recipe: Recipe; option: number }) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 flex-1">
         {/* Ingredients used */}
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
@@ -363,6 +411,18 @@ function RecipeCard({ recipe, option }: { recipe: Recipe; option: number }) {
           </div>
         </div>
       </CardContent>
+
+      <CardFooter>
+        <Button
+          variant={isSaved ? "secondary" : "outline"}
+          size="sm"
+          className="w-full"
+          disabled={isSaved}
+          onClick={onSave}
+        >
+          {isSaved ? "Sauvegardée ✓" : "Sauvegarder cette recette"}
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
