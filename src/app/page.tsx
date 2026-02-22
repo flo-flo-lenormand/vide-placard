@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,9 @@ export default function InventairePage() {
   const [newItem, setNewItem] = useState("");
   const [bulkText, setBulkText] = useState("");
   const [showBulk, setShowBulk] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanPreview, setScanPreview] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("vide-placard-ingredients");
@@ -29,18 +32,21 @@ export default function InventairePage() {
     localStorage.setItem("vide-placard-ingredients", JSON.stringify(updated));
   }
 
-  function addItem(name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    save([
-      ...ingredients,
-      { id: crypto.randomUUID(), name: trimmed, addedAt: new Date().toISOString() },
-    ]);
+  function addItems(names: string[]) {
+    const newItems: Ingredient[] = names
+      .map((n) => n.trim())
+      .filter(Boolean)
+      .map((name) => ({
+        id: crypto.randomUUID(),
+        name,
+        addedAt: new Date().toISOString(),
+      }));
+    if (newItems.length > 0) save([...ingredients, ...newItems]);
   }
 
   function handleAddSingle(e: React.FormEvent) {
     e.preventDefault();
-    addItem(newItem);
+    addItems([newItem]);
     setNewItem("");
   }
 
@@ -49,14 +55,54 @@ export default function InventairePage() {
       .split(/[\n,;]+/)
       .map((l) => l.replace(/^[-•*\d.)\s]+/, "").trim())
       .filter(Boolean);
-    const newItems: Ingredient[] = lines.map((name) => ({
-      id: crypto.randomUUID(),
-      name,
-      addedAt: new Date().toISOString(),
-    }));
-    save([...ingredients, ...newItems]);
+    addItems(lines);
     setBulkText("");
     setShowBulk(false);
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanning(true);
+    setScanPreview([]);
+
+    const formData = new FormData();
+    formData.append("photo", file);
+
+    try {
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Erreur lors du scan");
+        return;
+      }
+
+      const data = await res.json();
+      if (data.ingredients && data.ingredients.length > 0) {
+        setScanPreview(data.ingredients);
+      } else {
+        alert("Aucun ingrédient détecté dans la photo.");
+      }
+    } catch {
+      alert("Erreur de connexion lors du scan.");
+    } finally {
+      setScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function confirmScanResults() {
+    addItems(scanPreview);
+    setScanPreview([]);
+  }
+
+  function removeScanItem(index: number) {
+    setScanPreview(scanPreview.filter((_, i) => i !== index));
   }
 
   function removeItem(id: string) {
@@ -69,7 +115,6 @@ export default function InventairePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Mon Inventaire</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -89,17 +134,41 @@ export default function InventairePage() {
         <Button type="submit">Ajouter</Button>
       </form>
 
-      {/* Bulk add toggle */}
-      <Button
-        variant="link"
-        className="h-auto p-0 text-muted-foreground"
-        onClick={() => setShowBulk(!showBulk)}
-      >
-        {showBulk
-          ? "Masquer"
-          : "📋 Coller une liste (depuis ChatGPT)"}
-      </Button>
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setShowBulk(!showBulk)}
+          className="text-sm"
+        >
+          {showBulk ? "Masquer" : "Coller une liste"}
+        </Button>
 
+        <Button
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={scanning}
+          className="text-sm"
+        >
+          {scanning ? (
+            <span className="flex items-center gap-2">
+              <LoadingSpinner /> Analyse en cours...
+            </span>
+          ) : (
+            "Prendre une photo"
+          )}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handlePhotoUpload}
+          className="hidden"
+        />
+      </div>
+
+      {/* Bulk add */}
       {showBulk && (
         <Card>
           <CardContent className="pt-4 space-y-3">
@@ -116,14 +185,56 @@ export default function InventairePage() {
         </Card>
       )}
 
+      {/* Scan preview */}
+      {scanPreview.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-4 space-y-3">
+            <p className="text-sm font-medium">
+              {scanPreview.length} ingrédient{scanPreview.length !== 1 ? "s" : ""} détecté{scanPreview.length !== 1 ? "s" : ""} :
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {scanPreview.map((name, i) => (
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className="gap-1.5 py-1.5 px-3 text-sm group"
+                >
+                  {name}
+                  <button
+                    onClick={() => removeScanItem(i)}
+                    className="ml-0.5 text-muted-foreground hover:text-destructive"
+                    aria-label={`Retirer ${name}`}
+                  >
+                    ✕
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={confirmScanResults} className="flex-1">
+                Ajouter tout
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setScanPreview([])}
+              >
+                Annuler
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Ingredient list */}
       {ingredients.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <span className="text-5xl mb-4">🗄️</span>
+            <p className="text-4xl mb-4" role="img" aria-label="placard vide">
+              &#x1F5C4;&#xFE0F;
+            </p>
             <p className="font-medium">Vos placards sont vides !</p>
             <p className="text-sm mt-1">
-              Ajoutez des ingrédients ou collez une liste.
+              Ajoutez des ingrédients, collez une liste, ou prenez une photo.
             </p>
           </CardContent>
         </Card>
@@ -142,7 +253,7 @@ export default function InventairePage() {
                   className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                   aria-label={`Supprimer ${item.name}`}
                 >
-                  ✕
+                  &#x2715;
                 </button>
               </Badge>
             ))}
@@ -158,5 +269,14 @@ export default function InventairePage() {
         </div>
       )}
     </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
   );
 }

@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 
 interface Wine {
   name: string;
-  color: "rouge" | "blanc" | "rosé" | "pétillant";
+  color: string;
   reason: string;
 }
 
@@ -29,17 +29,21 @@ interface Recipe {
 }
 
 const wineEmoji: Record<string, string> = {
-  rouge: "🍷",
-  blanc: "🥂",
-  rosé: "🌸",
-  pétillant: "🍾",
+  rouge: "\uD83C\uDF77",
+  blanc: "\uD83E\uDD42",
+  rose: "\uD83C\uDF38",
+  "rosé": "\uD83C\uDF38",
+  petillant: "\uD83C\uDF7E",
+  "pétillant": "\uD83C\uDF7E",
 };
 
-const wineColor: Record<string, string> = {
+const wineColorStyle: Record<string, string> = {
   rouge: "bg-red-50 text-red-800 border-red-200",
   blanc: "bg-yellow-50 text-yellow-800 border-yellow-200",
-  rosé: "bg-pink-50 text-pink-800 border-pink-200",
-  pétillant: "bg-amber-50 text-amber-800 border-amber-200",
+  rose: "bg-pink-50 text-pink-800 border-pink-200",
+  "rosé": "bg-pink-50 text-pink-800 border-pink-200",
+  petillant: "bg-amber-50 text-amber-800 border-amber-200",
+  "pétillant": "bg-amber-50 text-amber-800 border-amber-200",
 };
 
 export default function RecettesPage() {
@@ -48,6 +52,7 @@ export default function RecettesPage() {
   const [rawFallback, setRawFallback] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [allowExtra, setAllowExtra] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem("vide-placard-ingredients");
@@ -67,15 +72,15 @@ export default function RecettesPage() {
       const res = await fetch("/api/recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ingredients }),
+        body: JSON.stringify({ ingredients, allowExtra }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Erreur lors de la génération");
       }
 
-      const data = await res.json();
       if (Array.isArray(data.recipes) && data.recipes.length > 0) {
         setRecipes(data.recipes);
       } else if (data.rawFallback) {
@@ -101,7 +106,9 @@ export default function RecettesPage() {
       {ingredients.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <span className="text-5xl mb-4">📝</span>
+            <p className="text-4xl mb-4" role="img" aria-label="liste vide">
+              &#x1F4DD;
+            </p>
             <p className="font-medium">Aucun ingrédient en stock</p>
             <p className="text-sm mt-1">
               Ajoutez d&apos;abord des ingrédients dans votre inventaire.
@@ -128,6 +135,24 @@ export default function RecettesPage() {
             </CardContent>
           </Card>
 
+          {/* Extra ingredients toggle */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allowExtra}
+              onChange={(e) => setAllowExtra(e.target.checked)}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            <div>
+              <p className="text-sm font-medium">
+                Autoriser des ingrédients supplémentaires
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Le chef pourra suggérer des ingrédients à acheter pour de meilleures recettes
+              </p>
+            </div>
+          </label>
+
           <Button
             onClick={generateRecipes}
             disabled={loading}
@@ -140,7 +165,7 @@ export default function RecettesPage() {
                 Le chef et le sommelier réfléchissent...
               </span>
             ) : (
-              "🍳 Générer des recettes"
+              "Générer des recettes"
             )}
           </Button>
 
@@ -157,7 +182,7 @@ export default function RecettesPage() {
             <RecipeCard key={i} recipe={recipe} index={i} />
           ))}
 
-          {/* Fallback raw text if JSON parsing failed */}
+          {/* Fallback raw text */}
           {rawFallback && (
             <Card>
               <CardContent className="pt-6 whitespace-pre-wrap text-sm">
@@ -173,6 +198,7 @@ export default function RecettesPage() {
 
 function RecipeCard({ recipe, index }: { recipe: Recipe; index: number }) {
   const labels = ["Entrée", "Plat principal", "Dessert"];
+  const wineKey = recipe.wine.color.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   return (
     <Card className="overflow-hidden">
@@ -182,8 +208,9 @@ function RecipeCard({ recipe, index }: { recipe: Recipe; index: number }) {
         </CardDescription>
         <CardTitle className="text-xl">{recipe.title}</CardTitle>
         <div className="flex gap-3 text-sm text-muted-foreground mt-1">
-          <span>⏱ Prépa {recipe.prepTime}</span>
-          <span>🔥 Cuisson {recipe.cookTime}</span>
+          <span>Prépa {recipe.prepTime}</span>
+          <span className="text-border">|</span>
+          <span>Cuisson {recipe.cookTime}</span>
         </div>
       </CardHeader>
 
@@ -215,7 +242,7 @@ function RecipeCard({ recipe, index }: { recipe: Recipe; index: number }) {
                   variant="outline"
                   className="text-xs border-dashed"
                 >
-                  {ing}
+                  + {ing}
                 </Badge>
               ))}
             </div>
@@ -245,11 +272,11 @@ function RecipeCard({ recipe, index }: { recipe: Recipe; index: number }) {
 
         {/* Wine pairing */}
         <div
-          className={`rounded-lg border p-4 ${wineColor[recipe.wine.color] || "bg-muted"}`}
+          className={`rounded-lg border p-4 ${wineColorStyle[recipe.wine.color] || wineColorStyle[wineKey] || "bg-muted border-border"}`}
         >
           <div className="flex items-start gap-3">
-            <span className="text-2xl">
-              {wineEmoji[recipe.wine.color] || "🍷"}
+            <span className="text-2xl" role="img" aria-label="vin">
+              {wineEmoji[recipe.wine.color] || wineEmoji[wineKey] || "\uD83C\uDF77"}
             </span>
             <div>
               <p className="font-semibold text-sm">{recipe.wine.name}</p>
@@ -264,24 +291,9 @@ function RecipeCard({ recipe, index }: { recipe: Recipe; index: number }) {
 
 function LoadingSpinner() {
   return (
-    <svg
-      className="animate-spin h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-      />
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
   );
 }
